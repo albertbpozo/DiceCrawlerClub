@@ -1,0 +1,120 @@
+:root {
+  --fondo: #17141f;
+  --panel: #231e2e;
+  --borde: #3a3249;
+  --texto: #e8e2d4;
+  --tenue: #9a91a8;
+  --acento: #e0a84f;
+  --exito: #6fcf8a;
+  --fallo: #e06a6a;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--fondo);
+  color: var(--texto);
+  font-family: Georgia, "Times New Roman", serif;
+  line-height: 1.6;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1.5rem;
+  border-bottom: 1px solid var(--borde);
+}
+header h1 { margin: 0; font-size: 1.4rem; color: var(--acento); }
+
+main {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 1.5rem;
+  max-width: 1100px;
+  margin: 1.5rem auto;
+  padding: 0 1.5rem;
+}
+@media (max-width: 800px) {
+  main { grid-template-columns: 1fr; }
+}
+
+#escena, #ficha {
+  background: var(--panel);
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  padding: 1.25rem 1.5rem;
+}
+
+#escena-titulo { margin-top: 0; color: var(--acento); }
+#escena-texto p { margin: 0 0 0.9rem; }
+
+#opciones { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 1rem; }
+
+button {
+  font: inherit;
+  cursor: pointer;
+  border-radius: 8px;
+  border: 1px solid var(--borde);
+  background: #2e2740;
+  color: var(--texto);
+  padding: 0.65rem 0.9rem;
+  text-align: left;
+}
+button:hover:not(:disabled) { border-color: var(--acento); }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+button.secundario { padding: 0.4rem 0.8rem; font-size: 0.9rem; }
+
+.etiqueta {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0 0.45rem;
+  border-radius: 4px;
+  background: #3b3150;
+  color: var(--acento);
+  font-size: 0.8rem;
+  font-family: monospace;
+}
+
+#tirada {
+  margin: 1rem 0;
+  padding: 1rem;
+  border-radius: 8px;
+  background: #1c1826;
+  border: 1px dashed var(--borde);
+  text-align: center;
+}
+#tirada .dado {
+  display: inline-block;
+  width: 64px;
+  height: 64px;
+  line-height: 64px;
+  font-size: 1.8rem;
+  font-weight: bold;
+  font-family: monospace;
+  border-radius: 12px;
+  background: var(--acento);
+  color: #1c1826;
+  margin: 0.25rem;
+}
+#tirada .dado.rodando { animation: rodar 0.15s linear infinite; }
+#tirada .exito { color: var(--exito); font-weight: bold; }
+#tirada .fallo { color: var(--fallo); font-weight: bold; }
+#tirada .detalle { color: var(--tenue); font-family: monospace; }
+
+@keyframes rodar {
+  0% { transform: rotate(0deg); }
+  50% { transform: rotate(12deg); }
+  100% { transform: rotate(-12deg); }
+}
+
+#ficha h3 { margin: 1rem 0 0.4rem; font-size: 1rem; color: var(--acento); }
+#ficha h3:first-child { margin-top: 0; }
+#stats div { display: flex; justify-content: space-between; font-family: monospace; }
+#inventario, #registro { margin: 0; padding-left: 1.2rem; font-size: 0.9rem; }
+#registro { list-style: none; padding-left: 0; color: var(--tenue); font-family: monospace; max-height: 220px; overflow-y: auto; }
+#registro .exito { color: var(--exito); }
+#registro .fallo { color: var(--fallo); }
+
+.efecto { color: var(--tenue); font-style: italic; }

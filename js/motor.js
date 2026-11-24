@@ -540,12 +540,21 @@
     render();
   }
 
-  $('btn-reiniciar').onclick = () => {
-    if (estado.fase === 'creacion' || estado.fase === 'fin' ||
-        confirm('¿Abandonar esta partida y empezar otra? (Cuenta como derrota)')) {
-      if (estado.fase !== 'creacion' && estado.fase !== 'fin') guardarRecord(false);
-      reiniciar();
+  // Confirmación en dos pulsaciones (sin confirm(), que algunos visores bloquean).
+  const btnReiniciar = $('btn-reiniciar');
+  let confirmando = null;
+  btnReiniciar.onclick = () => {
+    const enCurso = estado.fase !== 'creacion' && estado.fase !== 'fin';
+    if (enCurso && !confirmando) {
+      btnReiniciar.textContent = '¿Abandonar? Pulsa otra vez (cuenta como derrota)';
+      confirmando = setTimeout(() => { confirmando = null; btnReiniciar.textContent = 'Nueva partida'; }, 3000);
+      return;
     }
+    clearTimeout(confirmando);
+    confirmando = null;
+    btnReiniciar.textContent = 'Nueva partida';
+    if (enCurso) guardarRecord(false);
+    reiniciar();
   };
 
   // Si el guardado es de una versión incompatible, empezamos de cero.

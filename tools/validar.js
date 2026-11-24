@@ -1,38 +1,88 @@
-// Comprueba que la aventura es coherente: destinos existentes, atributos válidos y escenas alcanzables.
+// Comprueba que el contenido del juego es coherente.
 // Uso: node tools/validar.js
-const ESCENAS = require('../js/escenas.js');
+const { ATRIBUTOS, PERSONAJES, OBJETOS, MEJORAS, PISOS } = require('../js/contenido.js');
 
-const ATRIBUTOS = ['fuerza', 'agilidad', 'ingenio', 'carisma'];
 const errores = [];
-const alcanzables = new Set(['inicio', 'muerte']);
+const avisos = [];
+const ids = new Set();
+const banderasDadas = new Set();
+const banderasUsadas = new Set();
 
-for (const [id, escena] of Object.entries(ESCENAS)) {
-  if (!escena.titulo) errores.push(`${id}: falta titulo`);
-  if (!Array.isArray(escena.texto)) errores.push(`${id}: texto debe ser un array de párrafos`);
-  if (!escena.fin && !escena.opciones.length) errores.push(`${id}: no tiene opciones ni es un final`);
-
-  escena.opciones.forEach((op, i) => {
-    const donde = `${id} › opción ${i + 1} ("${op.texto}")`;
-    const destinos = op.prueba ? [op.exito, op.fallo] : [op];
-    if (op.prueba) {
-      if (!ATRIBUTOS.includes(op.prueba.atributo)) errores.push(`${donde}: atributo desconocido "${op.prueba.atributo}"`);
-      if (typeof op.prueba.dificultad !== 'number') errores.push(`${donde}: falta dificultad`);
-      if (!op.exito || !op.fallo) errores.push(`${donde}: una prueba necesita exito y fallo`);
-    }
-    destinos.filter(Boolean).forEach((d) => {
-      if (!d.ir) errores.push(`${donde}: falta "ir"`);
-      else if (!ESCENAS[d.ir]) errores.push(`${donde}: la escena "${d.ir}" no existe`);
-      else alcanzables.add(d.ir);
-    });
+function revisarEfectos(ef, donde) {
+  if (!ef) return;
+  [...(ef.ganar || []), ...(ef.perder || [])].forEach((o) => {
+    if (!OBJETOS[o]) errores.push(`${donde}: objeto desconocido "${o}"`);
   });
+  Object.keys(ef.atributos || {}).forEach((a) => {
+    if (!ATRIBUTOS[a]) errores.push(`${donde}: atributo desconocido "${a}"`);
+  });
+  [].concat(ef.bandera || []).forEach((b) => banderasDadas.add(b));
 }
 
-for (const id of Object.keys(ESCENAS)) {
-  if (!alcanzables.has(id)) errores.push(`${id}: ninguna opción lleva a esta escena`);
+function revisarCondicion(c, donde) {
+  if (!c) return;
+  if (c.objeto && !OBJETOS[c.objeto]) errores.push(`${donde}: objeto desconocido "${c.objeto}"`);
+  if (c.bandera) banderasUsadas.add(c.bandera);
 }
 
+function revisarEscena(e, donde, categoria, esJefe) {
+  if (!e.id) errores.push(`${donde}: falta id`);
+  else if (ids.has(e.id)) errores.push(`${donde}: id repetido "${e.id}"`);
+  ids.add(e.id);
+  donde = `${donde} [${e.id}]`;
+  if (!e.titulo) errores.push(`${donde}: falta titulo`);
+  if (!Array.isArray(e.texto)) errores.push(`${donde}: texto debe ser un array`);
+  if (!e.opciones || !e.opciones.length) errores.push(`${donde}: sin opciones`);
+  if (esJefe && !(e.resistencia > 0)) errores.push(`${donde}: un jefe necesita resistencia > 0`);
+
+  (e.opciones || []).forEach((op, i) => {
+    const d = `${donde} opción ${i + 1}`;
+    revisarCondicion(op.requiere, d);
+    if (op.prueba) {
+      const p = op.prueba;
+      if (!ATRIBUTOS[p.atributo]) errores.push(`${d}: atributo desconocido "${p.atributo}"`);
+      if (typeof p.dificultad !== 'number') errores.push(`${d}: falta dificultad`);
+      if (!op.exito || !op.fallo) errores.push(`${d}: una prueba necesita exito y fallo`);
+      revisarCondicion(p.ventaja, d);
+      revisarEfectos(op.exito && op.exito.efectos, d);
+      revisarEfectos(op.fallo && op.fallo.efectos, d);
+    } else {
+      if (esJefe) errores.push(`${d}: en un jefe todas las opciones deben tener prueba`);
+      revisarEfectos(op.efectos, d);
+    }
+  });
+
+  // En un jefe debe haber al menos una opción sin requisitos (si no, te puedes quedar atascado).
+  if (esJefe && !e.opciones.some((op) => !op.requiere && !op.una_vez)) {
+    errores.push(`${donde}: el jefe necesita al menos una opción repetible y sin requisitos`);
+  }
+  if (categoria && !e.opciones.some((op) => op.prueba && op.prueba.atributo === categoria)) {
+    avisos.push(`${donde}: está en el pool "${categoria}" pero ninguna prueba usa ese atributo`);
+  }
+}
+
+PERSONAJES.forEach((p) => p.objetos.forEach((o) => { if (!OBJETOS[o]) errores.push(`personaje ${p.nombre}: objeto desconocido "${o}"`); }));
+MEJORAS.forEach((m) => revisarEfectos(m.efectos, `mejora "${m.texto}"`));
+
+PISOS.forEach((piso, n) => {
+  const donde = `piso ${n + 1}`;
+  let total = 0;
+  Object.keys(ATRIBUTOS).forEach((cat) => {
+    const pool = piso.pool[cat] || [];
+    if (!pool.length) avisos.push(`${donde}: el pool "${cat}" está vacío`);
+    total += pool.length;
+    pool.forEach((e) => revisarEscena(e, `${donde} ${cat}`, cat, false));
+  });
+  if (total < piso.pasos) errores.push(`${donde}: tiene ${piso.pasos} pasos pero solo ${total} escenas`);
+  revisarEscena(piso.jefe, `${donde} jefe`, null, true);
+});
+
+banderasUsadas.forEach((b) => { if (!banderasDadas.has(b)) errores.push(`la bandera "${b}" se usa pero nunca se consigue`); });
+
+avisos.forEach((a) => console.warn('⚠️  ' + a));
 if (errores.length) {
   console.error('❌ Problemas encontrados:\n  - ' + errores.join('\n  - '));
   process.exit(1);
 }
-console.log(`✅ Aventura válida: ${Object.keys(ESCENAS).length} escenas.`);
+const escenas = PISOS.reduce((s, p) => s + Object.values(p.pool).reduce((a, l) => a + l.length, 0) + 1, 0);
+console.log(`✅ Contenido válido: ${PISOS.length} pisos, ${escenas} escenas (incluidos jefes), ${Object.keys(OBJETOS).length} objetos.`);

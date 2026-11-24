@@ -118,3 +118,48 @@ button.secundario { padding: 0.4rem 0.8rem; font-size: 0.9rem; }
 #registro .fallo { color: var(--fallo); }
 
 .efecto { color: var(--tenue); font-style: italic; }
+
+/* ---- Roguelike ---- */
+:root { --fisico: #e07a5f; --mental: #7f9cf5; --social: #c792ea; }
+
+#opciones button .detalle { font-size: 0.85rem; }
+.detalle { color: var(--tenue); font-family: monospace; }
+
+button.puerta { border-left-width: 5px; }
+button.puerta.fisico { border-left-color: var(--fisico); }
+button.puerta.mental { border-left-color: var(--mental); }
+button.puerta.social { border-left-color: var(--social); }
+.puerta-icono { font-size: 1.3rem; }
+
+.etiqueta.fisico { color: var(--fisico); }
+.etiqueta.mental { color: var(--mental); }
+.etiqueta.social { color: var(--social); }
+
+#tirada .dado.descartado { opacity: 0.35; }
+
+#jefe-barra {
+  margin-bottom: 0.8rem;
+  padding: 0.4rem 0.7rem;
+  border-radius: 6px;
+  background: #3a1f28;
+  color: var(--fallo);
+  font-family: monospace;
+}
+#jefe-barra .pips { letter-spacing: 0.2rem; margin-left: 0.4rem; }
+#jefe-barra .vacio { opacity: 0.4; }
+
+#progreso { margin-bottom: 1rem; font-family: monospace; color: var(--tenue); }
+#progreso .puntos span { margin-right: 0.35rem; opacity: 0.35; }
+#progreso .puntos .hecho { opacity: 1; color: var(--exito); }
+#progreso .puntos .actual { opacity: 1; color: var(--acento); }
+
+#stats .nombre { color: var(--texto); font-weight: bold; margin-bottom: 0.3rem; font-family: inherit; }
+#stats small { color: var(--tenue); }
+#stats .vida { position: relative; height: 22px; margin-bottom: 0.4rem; border-radius: 4px; background: #3a1f28; overflow: hidden; }
+#stats .vida div { position: absolute; inset: 0 auto 0 0; background: #8b2f3f; }
+#stats .vida span { position: relative; padding-left: 0.4rem; font-size: 0.85rem; }
+
+#inventario { list-style: none; padding-left: 0; }
+#inventario li { margin-bottom: 0.35rem; }
+#inventario li small { display: block; color: var(--tenue); font-size: 0.75rem; }
+button.mini { padding: 0.05rem 0.5rem; font-size: 0.75rem; margin-left: 0.4rem; }

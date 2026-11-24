@@ -67,6 +67,7 @@ const OBJETOS = {
   'Máscara sonriente': { desc: '+2 Social.', bonus: { social: 2 } },
   'Antorcha': { desc: 'Da ventaja en algunas pruebas físicas en la oscuridad.' },
   'Ganzúas': { desc: 'Da ventaja para abrir cerraduras.' },
+  'Escudo de Sir Bartolomé': { desc: '+1 Físico y +1 Social.', bonus: { fisico: 1, social: 1 } },
   'Monóculo de tahúr': { desc: 'Revela qué atributo pone a prueba cada opción.' },
   'Ábaco de hueso': { desc: 'Revela la dificultad y tu probabilidad de éxito.' },
 };

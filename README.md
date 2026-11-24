@@ -26,6 +26,20 @@ Abre `index.html` en el navegador. No hace falta instalar nada.
    Algunas opciones de jefe solo aparecen si encontraste la pista adecuada en pisos anteriores.
 5. **Elige una mejora** tras cada jefe: atributos, vida máxima, objetos…
 
+### Sir Bartolomé, el caballero errante
+
+Algunos personajes recuerdan lo que les hiciste. En el piso 1 (o en el 2, si no entraste) puede aparecer
+una 🛡️ **Puerta de la hoguera** con Sir Bartolomé:
+
+- **Hablar con él** y salir bien → se hace tu **aliado**. En los jefes tendrás la opción «Llamar a Sir Bartolomé»:
+  éxito automático, una vez por jefe. Si sale mal → **enemigo**.
+- **Atacarle** y ganar → te da su escudo (+1 Físico, +1 Social) y se va. Si pierdes → **enemigo**.
+- **No acercarte** → sigue su camino.
+
+Si es tu **aliado**, en los pisos siguientes puede aparecer luchando contra algo o herido. Si le ayudas, te
+recompensa y te jura lealtad: su ayuda contra los jefes quitará 2 de resistencia en vez de 1.
+Si es tu **enemigo**, te tenderá una **emboscada** en los pisos siguientes (puedes vencerle, engañarle o pedirle perdón).
+
 Si tu vida llega a 0, la partida termina (muerte permanente). El récord se guarda en el navegador.
 
 ## Estructura
@@ -33,6 +47,7 @@ Si tu vida llega a 0, la partida termina (muerte permanente). El récord se guar
 | Archivo | Qué contiene |
 |---|---|
 | `js/contenido.js` | Todo el contenido: personajes, objetos, mejoras, pisos, pools de escenas y jefes. |
+| `js/historias.js` | Eventos de historia (personajes recurrentes como Sir Bartolomé) y ayudas en los jefes. |
 | `js/motor.js` | El motor: fases de la partida, puertas, tiradas, efectos y pantalla. |
 | `js/dados.js` | Utilidades de dados (`1d20`, `2d6+1`, …). |
 | `tools/validar.js` | Comprueba el contenido (ids repetidos, objetos inexistentes, pistas imposibles…). |

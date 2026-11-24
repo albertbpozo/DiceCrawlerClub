@@ -33,6 +33,7 @@
       banderas: [],
       vistos: [],
       puertas: [],
+      eventos: [],     // eventos de historia planificados en el piso actual: [{ id, paso }]
       encuentro: null,
       mejoras: [],
       registro: [],
@@ -126,8 +127,14 @@
       const i = estado.inventario.indexOf(o);
       if (i >= 0) estado.inventario.splice(i, 1);
     });
+    [].concat(ef.quitar_bandera || []).forEach((b) => {
+      estado.banderas = estado.banderas.filter((x) => x !== b);
+    });
     [].concat(ef.bandera || []).forEach((b) => {
-      if (!estado.banderas.includes(b)) { estado.banderas.push(b); frases.push('📜 Has descubierto algo importante.'); }
+      if (!estado.banderas.includes(b)) {
+        estado.banderas.push(b);
+        frases.push(NOTAS_BANDERA[b] || '📜 Has descubierto algo importante.');
+      }
     });
     return frases;
   }
@@ -166,14 +173,50 @@
     return PISOS[estado.piso].pool[categoria].filter((e) => !estado.vistos.includes(e.id));
   }
 
+  // ---------- Eventos de historia ----------
+
+  function cumpleEvento(ev) {
+    return (ev.si || []).every((b) => estado.banderas.includes(b)) &&
+      (ev.si_no || []).every((b) => !estado.banderas.includes(b));
+  }
+
+  // Al entrar en un piso: por cada grupo, elige un evento posible y lo coloca en un paso al azar.
+  function planificarEventos() {
+    const grupos = {};
+    EVENTOS.filter((ev) => ev.pisos.includes(estado.piso) && cumpleEvento(ev))
+      .forEach((ev) => (grupos[ev.grupo] = grupos[ev.grupo] || []).push(ev));
+    const pasos = barajar([...Array(PISOS[estado.piso].pasos).keys()]);
+    estado.eventos = Object.values(grupos).map((lista, i) => ({ id: azar(lista).id, paso: pasos[i % pasos.length] }));
+  }
+
+  function eventoDelPaso() {
+    const plan = (estado.eventos || []).find((e) => e.paso === estado.paso);
+    const ev = plan && EVENTOS.find((e) => e.id === plan.id);
+    return ev && cumpleEvento(ev) ? ev : null;
+  }
+
+  function empezarEvento(ev) {
+    estado.encuentro = { evento: ev.id, categoria: null, id: ev.id, jefe: false, variacion: variacionAzar(),
+      usadas: [], ultima: null, terminado: false };
+    estado.fase = 'encuentro';
+  }
+
   function generarPuertas() {
+    const ev = eventoDelPaso();
+    if (ev && ev.modo === 'emboscada') return empezarEvento(ev);
     const cats = barajar(Object.keys(ATRIBUTOS).filter((c) => escenasDisponibles(c).length));
     const n = Math.min(cats.length, Math.random() < 0.5 ? 2 : 3);
     estado.puertas = cats.slice(0, n);
+    if (ev) estado.puertas.splice(Math.floor(Math.random() * (estado.puertas.length + 1)), 0, 'evento:' + ev.id);
     estado.fase = 'puertas';
   }
 
   function cruzarPuerta(categoria) {
+    if (categoria.startsWith('evento:')) {
+      empezarEvento(EVENTOS.find((e) => e.id === categoria.slice(7)));
+      guardar();
+      return render();
+    }
     const escena = azar(escenasDisponibles(categoria));
     estado.vistos.push(escena.id);
     estado.encuentro = { categoria, id: escena.id, jefe: false, variacion: variacionAzar(),
@@ -193,8 +236,15 @@
   function escenaActual() {
     const enc = estado.encuentro;
     const piso = PISOS[estado.piso];
+    if (enc.evento) return EVENTOS.find((e) => e.id === enc.evento).escena;
     if (enc.jefe) return piso.jefes.find((j) => j.id === enc.id);
     return piso.pool[enc.categoria].find((e) => e.id === enc.id);
+  }
+
+  // Opciones del encuentro actual: a los jefes se les suman las ayudas (aliados, etc.).
+  function opcionesActuales() {
+    const escena = escenaActual();
+    return estado.encuentro.jefe ? escena.opciones.concat(AYUDAS_JEFE) : escena.opciones;
   }
 
   function avanzar() {
@@ -239,8 +289,15 @@
 
   function elegirOpcion(idx) {
     if (animando) return;
-    const op = escenaActual().opciones[idx];
+    const op = opcionesActuales()[idx];
     if (op.prueba) return tirar(idx);
+    if (op.automatico) {
+      estado.encuentro.ultima = { idx, automatico: true, exito: true };
+      anotar('✨ ' + op.texto.replace(/^\S+\s/, '') + ': éxito automático', true);
+      aplicarResultado();
+      guardar();
+      return render();
+    }
     const frases = aplicarEfectos(op.efectos);
     estado.encuentro.ultima = { idx, sinTirada: true, texto: null, frases };
     estado.encuentro.terminado = true;
@@ -254,7 +311,7 @@
   }
 
   function tirar(idx) {
-    const op = escenaActual().opciones[idx];
+    const op = opcionesActuales()[idx];
     const p = op.prueba;
     const dif = dificultad(p);
     const ventaja = !!(p.ventaja && cumple(p.ventaja));
@@ -289,7 +346,7 @@
   function aplicarResultado() {
     const enc = estado.encuentro;
     const u = enc.ultima;
-    const op = escenaActual().opciones[u.idx];
+    const op = opcionesActuales()[u.idx];
     const res = (u.exito ? op.exito : op.fallo) || {};
     u.pendiente = false;
     u.texto = res.texto || '';
@@ -379,7 +436,7 @@
     $('escena-titulo').textContent = piso.nombre;
     $('escena-texto').innerHTML = parrafos([piso.intro]) +
       '<p class="efecto">' + piso.pasos + ' encuentros y un jefe te esperan.</p>';
-    boton('Adentrarse →', () => { estado.paso = 0; generarPuertas(); guardar(); render(); });
+    boton('Adentrarse →', () => { estado.paso = 0; planificarEventos(); generarPuertas(); guardar(); render(); });
   }
 
   function renderPuertas() {
@@ -387,6 +444,11 @@
     $('escena-titulo').textContent = piso.nombre + ' · Encrucijada';
     $('escena-texto').innerHTML = parrafos(['Ante ti hay ' + estado.puertas.length + ' puertas. ¿Cuál cruzas?']);
     estado.puertas.forEach((c) => {
+      if (c.startsWith('evento:')) {
+        const ev = EVENTOS.find((e) => e.id === c.slice(7));
+        return boton('<span class="puerta-icono">' + ev.puerta.icono + '</span> <strong>' + ev.puerta.nombre + '</strong>' +
+          '<br><span class="detalle">' + ev.puerta.texto + '</span>', () => cruzarPuerta(c), { clase: 'puerta evento' });
+      }
       const a = ATRIBUTOS[c];
       boton('<span class="puerta-icono">' + a.icono + '</span> <strong>Puerta ' + a.nombre.toLowerCase() + '</strong>' +
         '<span class="etiqueta">tu ' + a.nombre + ': ' + fmt(modificador(c)) + '</span>' +
@@ -423,10 +485,14 @@
       return;
     }
 
-    escena.opciones.forEach((op, i) => {
+    const opciones = opcionesActuales();
+    opciones.forEach((op, i) => {
       if (op.una_vez && enc.usadas.includes(i)) return;
+      if (op.oculta_si && cumple(op.oculta_si)) return;
+      if (op.automatico && op.requiere && !cumple(op.requiere)) return; // las ayudas no se anuncian si no las tienes
       let html = op.texto;
       if (op.prueba) html += etiquetaPrueba(op.prueba);
+      if (op.automatico) html += '<span class="etiqueta auto">✨ éxito seguro</span>';
       const bloqueada = op.requiere && !cumple(op.requiere);
       if (bloqueada) html += ' <span class="detalle">(' + describirRequisito(op.requiere) + ')</span>';
       boton(html, () => elegirOpcion(i), {
@@ -435,7 +501,7 @@
           ? 'Ventaja: tiras 2d20 y te quedas el mejor' : '',
       });
     });
-    if (escena.opciones.some((op) => op.prueba) && !(tiene(VE_ATRIBUTO) && tiene(VE_PROBABILIDAD))) {
+    if (opciones.some((op) => op.prueba) && !(tiene(VE_ATRIBUTO) && tiene(VE_PROBABILIDAD))) {
       $('opciones').insertAdjacentHTML('beforeend', '<p class="pista">' +
         (!tiene(VE_ATRIBUTO) && !tiene(VE_PROBABILIDAD)
           ? 'No sabes qué talento exige cada opción ni lo difícil que es. Quizá algún objeto te ayude a verlo.'
@@ -470,6 +536,11 @@
     if (u.sinTirada) {
       caja.innerHTML = (u.frases || []).map((f) => '<div class="efecto">' + f + '</div>').join('') ||
         '<div class="efecto">Sigues adelante.</div>';
+      return;
+    }
+    if (u.automatico) {
+      caja.innerHTML = '<div class="exito">✨ ÉXITO AUTOMÁTICO</div><p>' + esc(u.texto || '') + '</p>' +
+        (u.frases || []).map((f) => '<div class="efecto">' + f + '</div>').join('');
       return;
     }
     const etiqueta = u.critico ? '¡CRÍTICO!' : u.pifia ? '¡PIFIA!' : u.exito ? 'ÉXITO' : 'FALLO';

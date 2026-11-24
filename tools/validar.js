@@ -1,6 +1,7 @@
 // Comprueba que el contenido del juego es coherente.
 // Uso: node tools/validar.js
 const { ATRIBUTOS, PERSONAJES, OBJETOS, MEJORAS, PISOS } = require('../js/contenido.js');
+const { EVENTOS, AYUDAS_JEFE } = require('../js/historias.js');
 
 const errores = [];
 const avisos = [];
@@ -76,6 +77,23 @@ PISOS.forEach((piso, n) => {
   if (total < piso.pasos) errores.push(`${donde}: tiene ${piso.pasos} pasos pero solo ${total} escenas`);
   if (!Array.isArray(piso.jefes) || !piso.jefes.length) errores.push(`${donde}: necesita una lista "jefes" con al menos uno`);
   (piso.jefes || []).forEach((j) => revisarEscena(j, `${donde} jefe`, null, true));
+});
+
+// Eventos de historia
+EVENTOS.forEach((ev) => {
+  const donde = `evento ${ev.id}`;
+  if (!ev.grupo) errores.push(`${donde}: falta grupo`);
+  if (!Array.isArray(ev.pisos) || !ev.pisos.every((n) => PISOS[n])) errores.push(`${donde}: pisos inválidos`);
+  if (!['puerta', 'emboscada'].includes(ev.modo)) errores.push(`${donde}: modo debe ser 'puerta' o 'emboscada'`);
+  if (ev.modo === 'puerta' && !(ev.puerta && ev.puerta.nombre)) errores.push(`${donde}: un evento de puerta necesita 'puerta'`);
+  (ev.si || []).forEach((b) => banderasUsadas.add(b));
+  revisarEscena(Object.assign({ id: ev.id }, ev.escena), donde, null, false);
+});
+AYUDAS_JEFE.forEach((op, i) => {
+  const d = `ayuda de jefe ${i + 1}`;
+  revisarCondicion(op.requiere, d);
+  if (!op.automatico && !op.prueba) errores.push(`${d}: debe ser automatica o tener prueba`);
+  if (op.automatico && !op.exito) errores.push(`${d}: una ayuda automática necesita 'exito'`);
 });
 
 banderasUsadas.forEach((b) => { if (!banderasDadas.has(b)) errores.push(`la bandera "${b}" se usa pero nunca se consigue`); });

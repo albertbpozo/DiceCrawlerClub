@@ -74,7 +74,8 @@ PISOS.forEach((piso, n) => {
     pool.forEach((e) => revisarEscena(e, `${donde} ${cat}`, cat, false));
   });
   if (total < piso.pasos) errores.push(`${donde}: tiene ${piso.pasos} pasos pero solo ${total} escenas`);
-  revisarEscena(piso.jefe, `${donde} jefe`, null, true);
+  if (!Array.isArray(piso.jefes) || !piso.jefes.length) errores.push(`${donde}: necesita una lista "jefes" con al menos uno`);
+  (piso.jefes || []).forEach((j) => revisarEscena(j, `${donde} jefe`, null, true));
 });
 
 banderasUsadas.forEach((b) => { if (!banderasDadas.has(b)) errores.push(`la bandera "${b}" se usa pero nunca se consigue`); });
@@ -84,5 +85,6 @@ if (errores.length) {
   console.error('❌ Problemas encontrados:\n  - ' + errores.join('\n  - '));
   process.exit(1);
 }
-const escenas = PISOS.reduce((s, p) => s + Object.values(p.pool).reduce((a, l) => a + l.length, 0) + 1, 0);
-console.log(`✅ Contenido válido: ${PISOS.length} pisos, ${escenas} escenas (incluidos jefes), ${Object.keys(OBJETOS).length} objetos.`);
+const escenas = PISOS.reduce((s, p) => s + Object.values(p.pool).reduce((a, l) => a + l.length, 0), 0);
+const jefes = PISOS.reduce((s, p) => s + p.jefes.length, 0);
+console.log(`✅ Contenido válido: ${PISOS.length} pisos, ${escenas} escenas, ${jefes} jefes, ${Object.keys(OBJETOS).length} objetos.`);

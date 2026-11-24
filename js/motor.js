@@ -3,6 +3,11 @@
   const CLAVE_PARTIDA = 'dicecrawlerclub.partida.v2';
   const CLAVE_RECORD = 'dicecrawlerclub.record';
   const CURA_TRAS_JEFE = 6;
+  const VE_ATRIBUTO = 'Monóculo de tahúr';  // revela qué atributo usa cada opción
+  const VE_PROBABILIDAD = 'Ábaco de hueso'; // revela dificultad y probabilidad
+
+  // Variación aleatoria de dificultad de cada encuentro: -1, 0 o +1.
+  const variacionAzar = () => Math.floor(Math.random() * 3) - 1;
 
   const $ = (id) => document.getElementById(id);
   const azar = (lista) => lista[Math.floor(Math.random() * lista.length)];
@@ -171,23 +176,24 @@
   function cruzarPuerta(categoria) {
     const escena = azar(escenasDisponibles(categoria));
     estado.vistos.push(escena.id);
-    estado.encuentro = { categoria, id: escena.id, jefe: false, usadas: [], ultima: null, terminado: false };
+    estado.encuentro = { categoria, id: escena.id, jefe: false, variacion: variacionAzar(),
+      usadas: [], ultima: null, terminado: false };
     estado.fase = 'encuentro';
     guardar();
     render();
   }
 
   function empezarJefe() {
-    const jefe = PISOS[estado.piso].jefe;
+    const jefe = azar(PISOS[estado.piso].jefes);
     estado.encuentro = { categoria: null, id: jefe.id, jefe: true, resistencia: jefe.resistencia,
-      usadas: [], ultima: null, terminado: false };
+      variacion: variacionAzar(), usadas: [], ultima: null, terminado: false };
     estado.fase = 'encuentro';
   }
 
   function escenaActual() {
     const enc = estado.encuentro;
     const piso = PISOS[estado.piso];
-    if (enc.jefe) return piso.jefe;
+    if (enc.jefe) return piso.jefes.find((j) => j.id === enc.id);
     return piso.pool[enc.categoria].find((e) => e.id === enc.id);
   }
 
@@ -243,9 +249,14 @@
     render();
   }
 
+  function dificultad(prueba) {
+    return prueba.dificultad + (estado.encuentro.variacion || 0);
+  }
+
   function tirar(idx) {
     const op = escenaActual().opciones[idx];
     const p = op.prueba;
+    const dif = dificultad(p);
     const ventaja = !!(p.ventaja && cumple(p.ventaja));
     let natural = Dados.tirarDado(20);
     let descartada = null;
@@ -258,13 +269,14 @@
     const total = natural + mod;
     const critico = natural === 20;
     const pifia = natural === 1;
-    const exito = critico || (!pifia && total >= p.dificultad);
+    const exito = critico || (!pifia && total >= dif);
 
     estado.stats.tiradas++;
     if (exito) estado.stats.exitos++;
-    anotar(ATRIBUTOS[p.atributo].icono + ' ' + natural + (mod >= 0 ? '+' : '') + mod + '=' + total + ' vs ' + p.dificultad, exito);
+    anotar(ATRIBUTOS[p.atributo].icono + ' ' + natural + (mod >= 0 ? '+' : '') + mod + '=' + total +
+      (tiene(VE_PROBABILIDAD) ? ' vs ' + dif : '') + (exito ? ' ✓' : ' ✗'), exito);
 
-    estado.encuentro.ultima = { idx, atributo: p.atributo, dificultad: p.dificultad, natural, descartada,
+    estado.encuentro.ultima = { idx, atributo: p.atributo, dificultad: dif, natural, descartada,
       mod, total, ventaja, critico, pifia, exito, pendiente: !exito && tiene('Dado trucado') };
 
     animarDados(ventaja ? 2 : 1, () => {
@@ -350,6 +362,7 @@
     $('escena-texto').innerHTML = parrafos([
       'Bajo la ciudad hay un club donde la gente se juega la vida a los dados. Para entrar, hay que bajar ' + PISOS.length + ' pisos y salir con vida.',
       'Cada piso es distinto en cada partida. Elige tu camino según lo que mejor se te dé: 🗡️ físico, 🧠 mental o 🗣️ social. Si mueres, se acabó.',
+      'Al principio no sabrás qué talento exige cada decisión ni lo difícil que es. Busca objetos que te lo revelen.',
       '¿Quién eres?',
     ]) + (r.partidas ? '<p class="efecto">Partidas: ' + r.partidas + ' · Victorias: ' + r.victorias + ' · Piso máximo: ' + r.mejorPiso + '</p>' : '');
     PERSONAJES.forEach((p) => {
@@ -413,21 +426,42 @@
     escena.opciones.forEach((op, i) => {
       if (op.una_vez && enc.usadas.includes(i)) return;
       let html = op.texto;
-      if (op.prueba) {
-        const p = op.prueba;
-        const conVentaja = p.ventaja && cumple(p.ventaja);
-        const mod = modificador(p.atributo);
-        const prob = probabilidad(mod, p.dificultad, conVentaja);
-        html += '<span class="etiqueta ' + p.atributo + '">' + ATRIBUTOS[p.atributo].icono + ' ' +
-          ATRIBUTOS[p.atributo].nombre + ' ' + p.dificultad + (conVentaja ? ' ⇈' : '') + ' · ' + prob + '%</span>';
-      }
+      if (op.prueba) html += etiquetaPrueba(op.prueba);
       const bloqueada = op.requiere && !cumple(op.requiere);
       if (bloqueada) html += ' <span class="detalle">(' + describirRequisito(op.requiere) + ')</span>';
       boton(html, () => elegirOpcion(i), {
         disabled: bloqueada,
-        title: op.prueba && op.prueba.ventaja && cumple(op.prueba.ventaja) ? 'Ventaja: tiras 2d20 y te quedas el mejor' : '',
+        title: tiene(VE_ATRIBUTO) && op.prueba && op.prueba.ventaja && cumple(op.prueba.ventaja)
+          ? 'Ventaja: tiras 2d20 y te quedas el mejor' : '',
       });
     });
+    if (escena.opciones.some((op) => op.prueba) && !(tiene(VE_ATRIBUTO) && tiene(VE_PROBABILIDAD))) {
+      $('opciones').insertAdjacentHTML('beforeend', '<p class="pista">' +
+        (!tiene(VE_ATRIBUTO) && !tiene(VE_PROBABILIDAD)
+          ? 'No sabes qué talento exige cada opción ni lo difícil que es. Quizá algún objeto te ayude a verlo.'
+          : !tiene(VE_ATRIBUTO) ? 'No sabes qué talento exige cada opción.' : 'No sabes lo difícil que es cada opción.') + '</p>');
+    }
+  }
+
+  // Etiqueta de una prueba: el atributo solo con el monóculo, la dificultad y el % solo con el ábaco.
+  function etiquetaPrueba(p) {
+    const veAtr = tiene(VE_ATRIBUTO);
+    const veProb = tiene(VE_PROBABILIDAD);
+    const partes = [];
+    if (veAtr) {
+      const conVentaja = p.ventaja && cumple(p.ventaja);
+      partes.push(ATRIBUTOS[p.atributo].icono + ' ' + ATRIBUTOS[p.atributo].nombre + (conVentaja ? ' ⇈' : ''));
+    }
+    if (veProb) {
+      const dif = dificultad(p);
+      if (veAtr) {
+        partes.push('dif. ' + dif + ' · ' + probabilidad(modificador(p.atributo), dif, p.ventaja && cumple(p.ventaja)) + '%');
+      } else {
+        partes.push('dif. ' + dif);
+      }
+    }
+    if (!partes.length) partes.push('🎲 ?');
+    return '<span class="etiqueta ' + (veAtr ? p.atributo : '') + '">' + partes.join(' · ') + '</span>';
   }
 
   function renderResultado(u) {
@@ -443,7 +477,8 @@
       '<div><span class="dado">' + u.natural + '</span>' +
       (u.descartada !== null ? '<span class="dado descartado">' + u.descartada + '</span>' : '') + '</div>' +
       '<div class="detalle">' + u.natural + ' ' + (u.mod >= 0 ? '+ ' : '− ') + Math.abs(u.mod) + ' (' +
-      ATRIBUTOS[u.atributo].nombre + ') = ' + u.total + ' vs ' + u.dificultad + (u.ventaja ? ' · con ventaja' : '') + '</div>' +
+      ATRIBUTOS[u.atributo].nombre + ') = ' + u.total + (tiene(VE_PROBABILIDAD) ? ' vs ' + u.dificultad : '') +
+      (u.ventaja ? ' · con ventaja' : '') + '</div>' +
       '<div class="' + (u.exito ? 'exito' : 'fallo') + '">' + etiqueta + '</div>' +
       (u.pendiente ? '<p>Tienes un dado trucado. ¿Lo usas?</p>' : '<p>' + esc(u.texto || '') + '</p>') +
       (u.frases || []).map((f) => '<div class="efecto">' + f + '</div>').join('');
@@ -463,7 +498,7 @@
     const s = estado.stats;
     $('escena-titulo').textContent = victoria ? '🏆 ¡Bienvenido al club!' : '💀 Fin de la partida';
     $('escena-texto').innerHTML = parrafos(victoria
-      ? ['El Croupier se disuelve en humo y deja caer el Dado de Obsidiana. Subes las escaleras con él en la mano.',
+      ? ['El último guardián de la cripta cae y deja rodar el Dado de Obsidiana hasta tus pies. Subes las escaleras con él en la mano.',
          'La taberna entera se calla. La Maestra del Club lo lanza una vez: sale un 20. «Eres de los nuestros.»']
       : ['Caes al suelo frío de la cripta en ' + PISOS[estado.piso].nombre + '. A lo lejos se oye el repiqueteo de unos dados.',
          'Los dados no siempre están de tu parte. Pero siempre puedes volver a tirar.']) +

@@ -9,15 +9,20 @@ Abre `index.html` en el navegador. No hace falta instalar nada.
 
 1. **Elige personaje.** Cada uno destaca en uno de los tres atributos: 🗡️ **Físico**, 🧠 **Mental** y 🗣️ **Social**.
 2. **Elige puerta.** En cada paso aparecen 2 o 3 puertas, cada una de una categoría. Detrás hay una escena al azar
-   del pool de esa categoría en ese piso:
+   del pool de esa categoría en ese piso (5 por categoría y piso, sin repetir en la misma partida):
    - 🗡️ **Físico**: combates, esquivar trampas, fuerza bruta.
    - 🧠 **Mental**: hechizos, traducir textos, acertijos.
    - 🗣️ **Social**: persuadir, regatear, adivinar intenciones.
-3. **Tira.** Las pruebas son **1d20 + atributo** contra una dificultad; el botón muestra la probabilidad de éxito.
+3. **Tira.** Las pruebas son **1d20 + atributo** contra una dificultad, que además varía ±1 al azar en cada encuentro.
    Muchas escenas permiten probar con otro atributo, normalmente más difícil.
+   **Al principio no ves qué atributo usa cada opción ni lo difícil que es.** Para verlo tienes que conseguir:
+   - 🧐 **Monóculo de tahúr**: muestra el atributo de cada opción (y si tiras con ventaja).
+   - 🧮 **Ábaco de hueso**: muestra la dificultad y, junto al monóculo, tu probabilidad de éxito.
+
+   Se consiguen en algunos eventos, en tiendas o como mejora tras un jefe.
    - Un 20 natural es siempre éxito y un 1 natural siempre fallo.
    - `⇈` = **ventaja**: tiras 2d20 y te quedas el mejor (por un objeto o una pista).
-4. **Vence al jefe** al final de cada piso. Tiene una resistencia (◆): cada éxito le quita uno.
+4. **Vence al jefe** al final de cada piso (cada piso tiene varios jefes posibles y se sortea uno). Tiene una resistencia (◆): cada éxito le quita uno.
    Algunas opciones de jefe solo aparecen si encontraste la pista adecuada en pisos anteriores.
 5. **Elige una mejora** tras cada jefe: atributos, vida máxima, objetos…
 

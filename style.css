@@ -163,3 +163,5 @@ button.puerta.social { border-left-color: var(--social); }
 #inventario li { margin-bottom: 0.35rem; }
 #inventario li small { display: block; color: var(--tenue); font-size: 0.75rem; }
 button.mini { padding: 0.05rem 0.5rem; font-size: 0.75rem; margin-left: 0.4rem; }
+
+.pista { margin: 0.2rem 0 0; color: var(--tenue); font-size: 0.85rem; font-style: italic; }

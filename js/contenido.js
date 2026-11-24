@@ -3,12 +3,16 @@
 
   ATRIBUTOS: 'fisico', 'mental', 'social'.
   Una prueba tira 1d20 + atributo + bonus de objetos y debe igualar o superar la dificultad.
+  El jugador NO ve qué atributo usa cada opción ni su dificultad salvo que tenga:
+    'Monóculo de tahúr' -> muestra el atributo (y la ventaja)
+    'Ábaco de hueso'    -> muestra la dificultad y la probabilidad de éxito
+  Cada encuentro varía la dificultad al azar entre -1 y +1.
 
   PISOS: cada piso tiene
     nombre, intro       : texto al llegar al piso
     pasos               : cuántos encuentros hay antes del jefe
     pool                : { fisico: [...], mental: [...], social: [...] } escenas posibles por categoría
-    jefe                : escena final del piso (con 'resistencia')
+    jefes               : lista de jefes posibles; se sortea uno por partida (con 'resistencia')
 
   ESCENA (encuentro):
     id, titulo, texto: [párrafos]
@@ -63,6 +67,8 @@ const OBJETOS = {
   'Máscara sonriente': { desc: '+2 Social.', bonus: { social: 2 } },
   'Antorcha': { desc: 'Da ventaja en algunas pruebas físicas en la oscuridad.' },
   'Ganzúas': { desc: 'Da ventaja para abrir cerraduras.' },
+  'Monóculo de tahúr': { desc: 'Revela qué atributo pone a prueba cada opción.' },
+  'Ábaco de hueso': { desc: 'Revela la dificultad y tu probabilidad de éxito.' },
 };
 
 // Recompensas tras vencer a un jefe (se ofrecen 3 al azar).
@@ -77,6 +83,8 @@ const MEJORAS = [
   { texto: 'Grimorio negro (+2 Mental)', efectos: { ganar: ['Grimorio negro'] } },
   { texto: 'Máscara sonriente (+2 Social)', efectos: { ganar: ['Máscara sonriente'] } },
   { texto: 'Bolsa de 12 de oro', efectos: { oro: 12 } },
+  { texto: 'Monóculo de tahúr (ves qué atributo usa cada opción)', efectos: { ganar: ['Monóculo de tahúr'] } },
+  { texto: 'Ábaco de hueso (ves la dificultad y tu probabilidad)', efectos: { ganar: ['Ábaco de hueso'] } },
 ];
 
 const PISOS = [
@@ -118,6 +126,27 @@ const PISOS = [
               exito: { texto: 'Acaba dormido sobre un barril. Pasas de puntillas.' },
               fallo: { texto: 'Acabas tú peor que él.', efectos: { vida: -2 } } },
           ] },
+        { id: 'arana', titulo: 'La araña de la bodega',
+          texto: ['Una araña del tamaño de un perro cuelga del techo, rodeada de botellas envueltas en seda.'],
+          opciones: [
+            { texto: 'Aplastarla con lo que tengas a mano', prueba: { atributo: 'fisico', dificultad: 11 },
+              exito: { texto: 'Crac. Entre las botellas envueltas hay unas monedas.', efectos: { oro: '1d6' } },
+              fallo: { texto: 'Te muerde antes de caer. Pica muchísimo.', efectos: { vida: '-1d4' } } },
+            { texto: 'Quemar la telaraña', requiere: { objeto: 'Antorcha' }, prueba: { atributo: 'mental', dificultad: 8 },
+              exito: { texto: 'La seda arde como papel y la araña huye.', efectos: { oro: '1d4' } },
+              fallo: { texto: 'Te quemas los dedos.', efectos: { vida: -1 } } },
+            { texto: 'Pasar corriendo por debajo', efectos: { vida: -1 } },
+          ] },
+        { id: 'viga', titulo: 'El pozo de la bodega',
+          texto: ['El suelo se ha hundido. Solo queda una viga estrecha sobre un pozo oscuro. Al fondo se oye agua.'],
+          opciones: [
+            { texto: 'Cruzar haciendo equilibrio', prueba: { atributo: 'fisico', dificultad: 11 },
+              exito: { texto: 'Cruzas sin mirar abajo. Al otro lado alguien olvidó una bolsa.', efectos: { oro: '1d4+1' } },
+              fallo: { texto: 'Te resbalas y te agarras a la viga con las uñas.', efectos: { vida: '-1d4' } } },
+            { texto: 'Buscar un camino alternativo', prueba: { atributo: 'mental', dificultad: 12 },
+              exito: { texto: 'Encuentras un pasadizo detrás de un tonel vacío.' },
+              fallo: { texto: 'Das vueltas durante una hora y acabas cruzando la viga igualmente, agotado.', efectos: { vida: -2 } } },
+          ] },
       ],
       mental: [
         { id: 'diario', titulo: 'El diario del contrabandista',
@@ -146,6 +175,26 @@ const PISOS = [
               fallo: { texto: 'La llama estalla en tu cara.', efectos: { vida: '-1d4' } } },
             { texto: 'Llevarte la vela como antorcha', efectos: { ganar: ['Antorcha'] } },
           ] },
+        { id: 'alquimista', titulo: 'La mesa del alquimista',
+          texto: ['Frascos burbujeantes, un libro de recetas manchado y un caldero todavía caliente.'],
+          opciones: [
+            { texto: 'Seguir una receta del libro', prueba: { atributo: 'mental', dificultad: 12 },
+              exito: { texto: 'Te salen dos pociones decentes.', efectos: { ganar: ['Poción', 'Poción'] } },
+              fallo: { texto: 'El caldero explota.', efectos: { vida: '-1d4' } } },
+            { texto: 'Beber un frasco al azar', prueba: { atributo: 'fisico', dificultad: 12 },
+              exito: { texto: 'Sabe a regaliz y te sienta de maravilla.', efectos: { vida: 4 } },
+              fallo: { texto: 'Sabe a regaliz y a muerte.', efectos: { vida: -2 } } },
+          ] },
+        { id: 'libro_cuentas', titulo: 'Las cuentas del bodeguero',
+          texto: ['Un libro de contabilidad abierto. Las sumas no cuadran: alguien roba al club. Sobre el libro, un ábaco de hueso.'],
+          opciones: [
+            { texto: 'Repasar las cuentas', prueba: { atributo: 'mental', dificultad: 12 },
+              exito: { texto: 'Descubres el truco y te quedas el ábaco: con él, calcular tus posibilidades será coser y cantar.', efectos: { ganar: ['Ábaco de hueso'] } },
+              fallo: { texto: 'Los números te bailan. Te llevas solo un dolor de cabeza.', efectos: { vida: -1 } } },
+            { texto: 'Chantajear al bodeguero con lo que has visto', prueba: { atributo: 'social', dificultad: 13 },
+              exito: { texto: 'Paga por tu silencio.', efectos: { oro: '2d4' } },
+              fallo: { texto: 'Te echa a escobazos.', efectos: { vida: -2 } } },
+          ] },
       ],
       social: [
         { id: 'tahur', titulo: 'El tahúr del sótano',
@@ -167,6 +216,7 @@ const PISOS = [
               fallo: { texto: 'No se fía de ti y se marcha.' } },
             { texto: 'Comprar una poción (4 de oro)', requiere: { oro: 4 }, efectos: { oro: -4, ganar: ['Poción'] } },
             { texto: 'Comprar un dado trucado (6 de oro)', requiere: { oro: 6 }, efectos: { oro: -6, ganar: ['Dado trucado'] } },
+            { texto: 'Comprar un monóculo de tahúr (5 de oro)', requiere: { oro: 5 }, efectos: { oro: -5, ganar: ['Monóculo de tahúr'] } },
           ] },
         { id: 'novatos', titulo: 'Otros aspirantes',
           texto: ['Dos aspirantes al club discuten junto a una puerta. Te miran de reojo. ¿Rivales o aliados?'],
@@ -178,9 +228,30 @@ const PISOS = [
               exito: { texto: 'Te dan su bolsa y salen corriendo.', efectos: { oro: '1d6' } },
               fallo: { texto: 'Se ríen de ti y te empujan contra la pared.', efectos: { vida: -2 } } },
           ] },
+        { id: 'gato', titulo: 'El gato que habla',
+          texto: ['Un gato negro con un monóculo te observa desde un barril. «Adivina qué quiero y te daré algo bonito.»'],
+          opciones: [
+            { texto: 'Adivinar sus intenciones', prueba: { atributo: 'social', dificultad: 11 },
+              exito: { texto: '«Solo quería que alguien me rascara la cabeza.» Te regala su monóculo: ahora ves qué talento exige cada situación.', efectos: { ganar: ['Monóculo de tahúr'] } },
+              fallo: { texto: '«Error.» Un zarpazo y desaparece.', efectos: { vida: -1 } } },
+            { texto: 'Intentar quitarle el monóculo', prueba: { atributo: 'fisico', dificultad: 14 },
+              exito: { texto: 'Lo consigues, por poco.', efectos: { ganar: ['Monóculo de tahúr'] } },
+              fallo: { texto: 'Te deja la cara como un mapa.', efectos: { vida: '-1d4' } } },
+          ] },
+        { id: 'vigilante', titulo: 'La vigilante del club',
+          texto: ['Una mujer con armadura de cuero y un dado tatuado en la frente te corta el paso. «Contraseña.»'],
+          opciones: [
+            { texto: 'Inventarte una contraseña con aplomo', prueba: { atributo: 'social', dificultad: 12 },
+              exito: { texto: '«Correcto.» No lo era. Te deja pasar e incluso te da una poción para el camino.', efectos: { ganar: ['Poción'] } },
+              fallo: { texto: 'Te empuja escaleras abajo.', efectos: { vida: -2 } } },
+            { texto: 'Pagarle (3 de oro)', requiere: { oro: 3 }, efectos: { oro: -3 } },
+            { texto: 'Pasar por la fuerza', prueba: { atributo: 'fisico', dificultad: 13 },
+              exito: { texto: 'La apartas de un empujón y corres.' },
+              fallo: { texto: 'Ella empuja más fuerte.', efectos: { vida: '-1d4' } } },
+          ] },
       ],
     },
-    jefe: {
+    jefes: [{
       id: 'jefe_rey_rata', titulo: '👑 JEFE: El Rey Rata',
       texto: ['Al fondo de la bodega, sobre un trono de corchos, una masa de ratas con una corona de hojalata se levanta y chilla.'],
       resistencia: 3,
@@ -196,7 +267,25 @@ const PISOS = [
           exito: { texto: 'Algunas ratas desertan atraídas por tu oferta.' },
           fallo: { texto: 'Su majestad no negocia.', efectos: { vida: '-1d4' } } },
       ],
-    },
+    }, {
+      id: 'jefe_ogro', titulo: '👑 JEFE: El Bodeguero Ogro',
+      texto: ['Un ogro con delantal y un barril por jarra te mira desde detrás de la barra. «Nadie baja sin pagar la ronda.»'],
+      resistencia: 3,
+      opciones: [
+        { texto: 'Pelear con él', prueba: { atributo: 'fisico', dificultad: 13 },
+          exito: { texto: 'Le das en la barriga. Se dobla.' },
+          fallo: { texto: 'Te sacude con la jarra.', efectos: { vida: '-1d4' } } },
+        { texto: 'Hacerle tropezar con los barriles', prueba: { atributo: 'mental', dificultad: 12 },
+          exito: { texto: 'Rueda un barril y el ogro cae de espaldas.' },
+          fallo: { texto: 'El barril te pilla a ti.', efectos: { vida: '-1d4' } } },
+        { texto: 'Retarle a una ronda de chupitos', prueba: { atributo: 'social', dificultad: 13 },
+          exito: { texto: 'El ogro se tambalea, mareado.' },
+          fallo: { texto: 'Quien se tambalea eres tú.', efectos: { vida: '-1d4' } } },
+        { texto: 'Gritar «¡Inspección del club!»', una_vez: true, prueba: { atributo: 'social', dificultad: 12, ventaja: { bandera: 'secreto_ruido' } },
+          exito: { texto: 'El ogro se esconde bajo la barra, aterrorizado.', golpe: 2 },
+          fallo: { texto: 'No se lo cree.', efectos: { vida: -2 } } },
+      ],
+    }],
   },
 
   // ======================================================================
@@ -237,6 +326,27 @@ const PISOS = [
               exito: { texto: 'Sales del derrumbe cubierto de polvo, pero entero.' },
               fallo: { texto: 'Una piedra te golpea en la espalda.', efectos: { vida: '-1d4' } } },
           ] },
+        { id: 'necrofago', titulo: 'El necrófago hambriento',
+          texto: ['Una criatura pálida roe un hueso. Levanta la cabeza y olfatea. Te ha olido.'],
+          opciones: [
+            { texto: 'Pelear', prueba: { atributo: 'fisico', dificultad: 13 },
+              exito: { texto: 'Lo derribas. Llevaba un anillo en un dedo que no era suyo.', efectos: { ganar: ['Anillo de oro'] } },
+              fallo: { texto: 'Sus garras te desgarran.', efectos: { vida: '-1d6' } } },
+            { texto: 'Lanzarle comida y distraerle', prueba: { atributo: 'social', dificultad: 13 },
+              exito: { texto: 'Se lanza a por la comida y te olvida.' },
+              fallo: { texto: 'Prefiere comida fresca. Tú.', efectos: { vida: '-1d6' } } },
+          ] },
+        { id: 'rio', titulo: 'El río subterráneo',
+          texto: ['Un río negro y helado corta el pasillo. En la otra orilla, entre los huesos, brilla algo.'],
+          opciones: [
+            { texto: 'Cruzar a nado', prueba: { atributo: 'fisico', dificultad: 13 },
+              exito: { texto: 'Llegas tiritando. Lo que brillaba era un monóculo con montura de plata.', efectos: { ganar: ['Monóculo de tahúr'] } },
+              fallo: { texto: 'La corriente te golpea contra las rocas.', efectos: { vida: '-1d6' } } },
+            { texto: 'Construir una balsa con ataúdes', prueba: { atributo: 'mental', dificultad: 14 },
+              exito: { texto: 'Macabro pero eficaz. Llegas seco y te llevas el monóculo.', efectos: { ganar: ['Monóculo de tahúr'] } },
+              fallo: { texto: 'El ataúd se hunde contigo dentro.', efectos: { vida: '-1d6' } } },
+            { texto: 'Dar media vuelta', efectos: {} },
+          ] },
       ],
       mental: [
         { id: 'lapida', titulo: 'La lápida en lengua muerta',
@@ -264,6 +374,26 @@ const PISOS = [
             { texto: 'Romper el espejo', prueba: { atributo: 'fisico', dificultad: 12 },
               exito: { texto: 'Mil pedazos. Siete años de mala suerte, pero libre.' },
               fallo: { texto: 'Los cristales te cortan.', efectos: { vida: '-1d6' } } },
+          ] },
+        { id: 'reloj', titulo: 'El reloj de arena maldito',
+          texto: ['Un reloj de arena gigante. Al acercarte, notas cómo tus uñas y tu pelo crecen a toda velocidad.'],
+          opciones: [
+            { texto: 'Invertir el hechizo', prueba: { atributo: 'mental', dificultad: 14 },
+              exito: { texto: 'El tiempo corre al revés y tus heridas se cierran.', efectos: { vida: '1d6+2' } },
+              fallo: { texto: 'Envejeces unos años de golpe.', efectos: { vida: '-1d6' } } },
+            { texto: 'Romper el cristal', prueba: { atributo: 'fisico', dificultad: 13 },
+              exito: { texto: 'La arena se derrama y el hechizo se rompe.' },
+              fallo: { texto: 'Los cristales te cortan y la arena te ciega.', efectos: { vida: '-1d4' } } },
+          ] },
+        { id: 'runas_cambiantes', titulo: 'La puerta de las runas cambiantes',
+          texto: ['Las runas de esta puerta cambian cada vez que parpadeas. Detrás huele a incienso y a monedas viejas.'],
+          opciones: [
+            { texto: 'Memorizar la secuencia', prueba: { atributo: 'mental', dificultad: 14 },
+              exito: { texto: 'La puerta se abre a una cámara de ofrendas.', efectos: { oro: '2d6' } },
+              fallo: { texto: 'Una descarga recorre tu cuerpo.', efectos: { vida: '-1d6' } } },
+            { texto: 'Forzar la puerta', prueba: { atributo: 'fisico', dificultad: 15, ventaja: { objeto: 'Ganzúas' } },
+              exito: { texto: 'Cede con un chasquido.', efectos: { oro: '1d6' } },
+              fallo: { texto: 'Las runas se encienden contra ti.', efectos: { vida: '-1d6' } } },
           ] },
       ],
       social: [
@@ -298,9 +428,28 @@ const PISOS = [
               exito: { texto: 'Pasas como una sombra.' },
               fallo: { texto: 'Tiras un candelabro. Corres, pero te alcanzan.', efectos: { vida: '-1d4' } } },
           ] },
+        { id: 'nigromante', titulo: 'El aprendiz de nigromante',
+          texto: ['Un chaval con túnica demasiado grande intenta, sin éxito, levantar un esqueleto. «¡No mires! ¡Estoy practicando!»'],
+          opciones: [
+            { texto: 'Darle ánimos y consejos', prueba: { atributo: 'social', dificultad: 13 },
+              exito: { texto: 'Agradecido, te cuenta un secreto de su maestro: «Al Croupier nunca hay que mirarle a los ojos».', efectos: { bandera: 'no_mirar', ganar: ['Poción'] } },
+              fallo: { texto: 'Se pone nervioso y el esqueleto se levanta... contra ti.', efectos: { vida: '-1d6' } } },
+            { texto: 'Corregir su conjuro', prueba: { atributo: 'mental', dificultad: 14 },
+              exito: { texto: '¡Funciona! Te regala su grimorio de prácticas.', efectos: { ganar: ['Grimorio negro'] } },
+              fallo: { texto: 'Lo empeoras. Boom.', efectos: { vida: '-1d6' } } },
+          ] },
+        { id: 'subasta', titulo: 'La subasta de los muertos',
+          texto: ['Fantasmas elegantes pujan por objetos perdidos. El subastador te señala: «¡Tenemos un nuevo postor!»'],
+          opciones: [
+            { texto: 'Pujar de farol', prueba: { atributo: 'social', dificultad: 14 },
+              exito: { texto: 'Te llevas un ábaco de hueso sin pagar un céntimo.', efectos: { ganar: ['Ábaco de hueso'] } },
+              fallo: { texto: 'Te pillan el farol y te cobran la multa.', efectos: { oro: -4, vida: -1 } } },
+            { texto: 'Comprar el monóculo (6 de oro)', requiere: { oro: 6 }, efectos: { oro: -6, ganar: ['Monóculo de tahúr'] } },
+            { texto: 'Comprar el ábaco (6 de oro)', requiere: { oro: 6 }, efectos: { oro: -6, ganar: ['Ábaco de hueso'] } },
+          ] },
       ],
     },
-    jefe: {
+    jefes: [{
       id: 'jefe_caballero', titulo: '👑 JEFE: El Caballero Sin Cabeza',
       texto: ['Una armadura enorme se levanta de un sarcófago. Sostiene su yelmo bajo el brazo, y el yelmo habla: «Demuestra tu valía.»'],
       resistencia: 3,
@@ -318,7 +467,25 @@ const PISOS = [
           exito: { texto: '«Tienes razón...» Su espada tiembla.' },
           fallo: { texto: 'No hay honor en la muerte.', efectos: { vida: '-1d6' } } },
       ],
-    },
+    }, {
+      id: 'jefe_banshee', titulo: '👑 JEFE: La Banshee del Osario',
+      texto: ['Una figura de velos blancos flota sobre una montaña de cráneos. Abre la boca y el grito te hiela la sangre.'],
+      resistencia: 3,
+      opciones: [
+        { texto: 'Cargar contra ella', prueba: { atributo: 'fisico', dificultad: 14 },
+          exito: { texto: 'Le arrancas parte del velo. Chilla de rabia.' },
+          fallo: { texto: 'Atraviesas su cuerpo y el frío te muerde.', efectos: { vida: '-1d6' } } },
+        { texto: 'Recitar un contrahechizo', prueba: { atributo: 'mental', dificultad: 14 },
+          exito: { texto: 'Su grito se quiebra.' },
+          fallo: { texto: 'Su grito te revienta los oídos.', efectos: { vida: '-1d6' } } },
+        { texto: 'Cantar con ella para calmarla', prueba: { atributo: 'social', dificultad: 14 },
+          exito: { texto: 'Por un momento, su lamento se vuelve canción.' },
+          fallo: { texto: 'Desafinas. Mal momento para hacerlo.', efectos: { vida: '-1d6' } } },
+        { texto: 'Prender fuego a sus velos', requiere: { objeto: 'Antorcha' }, una_vez: true, prueba: { atributo: 'fisico', dificultad: 12 },
+          exito: { texto: 'Los velos arden y la banshee se retuerce.', golpe: 2 },
+          fallo: { texto: 'La antorcha se apaga con su aliento.', efectos: { vida: -2 } } },
+      ],
+    }],
   },
 
   // ======================================================================
@@ -358,6 +525,27 @@ const PISOS = [
               exito: { texto: 'Te cuenta batallitas y te deja pasar, con nostalgia.', efectos: { vida: 2 } },
               fallo: { texto: '«No me hagas perder el tiempo.» Te da un empujón.', efectos: { vida: '-1d4' } } },
           ] },
+        { id: 'ruleta', titulo: 'La ruleta gigante',
+          texto: ['El suelo es una ruleta enorme que gira cada vez más rápido. En el centro, un montón de fichas de oro.'],
+          opciones: [
+            { texto: 'Correr hasta el centro', prueba: { atributo: 'fisico', dificultad: 15 },
+              exito: { texto: 'Llegas al centro y te llenas los bolsillos.', efectos: { oro: '2d6' } },
+              fallo: { texto: 'Sales despedido contra la pared.', efectos: { vida: '-1d8' } } },
+            { texto: 'Calcular dónde se detendrá', prueba: { atributo: 'mental', dificultad: 15 },
+              exito: { texto: 'Esperas en la casilla correcta. Las fichas ruedan hacia ti.', efectos: { oro: '2d6' } },
+              fallo: { texto: 'Te mareas y caes.', efectos: { vida: '-1d6' } } },
+            { texto: 'Bordear la ruleta', efectos: {} },
+          ] },
+        { id: 'sabueso', titulo: 'El sabueso de la Casa',
+          texto: ['Un perro de tres cabezas con collar de fichas de póquer gruñe. Cada cabeza te mira con un ojo distinto.'],
+          opciones: [
+            { texto: 'Pelear', prueba: { atributo: 'fisico', dificultad: 15 },
+              exito: { texto: 'El sabueso huye con el rabo entre las patas. Del collar se cae algo.', efectos: { ganar: ['Poción'], oro: '1d6' } },
+              fallo: { texto: 'Tres mordiscos a la vez.', efectos: { vida: '-1d8' } } },
+            { texto: 'Calmarlo con voz suave', prueba: { atributo: 'social', dificultad: 15 },
+              exito: { texto: 'Las tres cabezas se tumban a que las acaricies.', efectos: { vida: 2 } },
+              fallo: { texto: 'Dos cabezas se calman. La tercera no.', efectos: { vida: '-1d6' } } },
+          ] },
       ],
       mental: [
         { id: 'oraculo', titulo: 'El oráculo de los dados',
@@ -388,6 +576,25 @@ const PISOS = [
               exito: { texto: 'La guardas. Algo es algo.', efectos: { bandera: 'trampa_croupier', vida: -1 } },
               fallo: { texto: 'El libro te muerde los dedos.', efectos: { vida: '-1d6' } } },
           ] },
+        { id: 'contrato', titulo: 'El contrato de la Casa',
+          texto: ['Un pergamino flota ante ti. «Firma y recibirás riquezas.» La letra pequeña es muy, muy pequeña.'],
+          opciones: [
+            { texto: 'Leer la letra pequeña', prueba: { atributo: 'mental', dificultad: 15, ventaja: { objeto: 'Anteojos de cristal' } },
+              exito: { texto: 'Encuentras la cláusula trampa: el Croupier hace trampas con la mano izquierda. La tachas y firmas.', efectos: { bandera: 'trampa_croupier', oro: '1d6' } },
+              fallo: { texto: 'La tinta te salta a los ojos.', efectos: { vida: '-1d6' } } },
+            { texto: 'Firmar sin leer', efectos: { oro: 10, vida: -4 } },
+            { texto: 'Romper el contrato', efectos: {} },
+          ] },
+        { id: 'espejos', titulo: 'El laberinto de espejos',
+          texto: ['Cientos de reflejos tuyos. Solo uno de ellos camina hacia la salida.'],
+          opciones: [
+            { texto: 'Seguir al reflejo correcto', prueba: { atributo: 'mental', dificultad: 15 },
+              exito: { texto: 'Sales del laberinto. Tu reflejo te lanza un guiño y un dado trucado.', efectos: { ganar: ['Dado trucado'] } },
+              fallo: { texto: 'Te das contra un espejo. Y otro. Y otro.', efectos: { vida: '-1d6' } } },
+            { texto: 'Romper los espejos a tu paso', prueba: { atributo: 'fisico', dificultad: 14 },
+              exito: { texto: 'Sales lleno de cortes pequeños, pero sales.', efectos: { vida: -1 } },
+              fallo: { texto: 'Los cristales te llueven encima.', efectos: { vida: '-1d8' } } },
+          ] },
       ],
       social: [
         { id: 'apostadores', titulo: 'La mesa de los condenados',
@@ -417,9 +624,28 @@ const PISOS = [
             { texto: 'Comprar dos pociones (6 de oro)', requiere: { oro: 6 }, efectos: { oro: -6, ganar: ['Poción', 'Poción'] } },
             { texto: 'Vender un año de vida por 10 de oro', efectos: { vida: -3, oro: 10 } },
           ] },
+        { id: 'aprendiz_croupier', titulo: 'La aprendiz del Croupier',
+          texto: ['Una joven con chaleco verde reparte cartas sola. «Mi maestro quiere que te pierdas. Yo... no estoy tan segura.»'],
+          opciones: [
+            { texto: 'Leer sus verdaderas intenciones', prueba: { atributo: 'social', dificultad: 15 },
+              exito: { texto: 'Quiere escapar. Le prometes ayuda y te confía el nombre verdadero de su maestro: Teodoro.', efectos: { bandera: 'nombre_croupier' } },
+              fallo: { texto: 'Era una prueba y la has suspendido. Te lanza una carta afilada.', efectos: { vida: '-1d8' } } },
+            { texto: 'Ganarle a las cartas', prueba: { atributo: 'mental', dificultad: 16 },
+              exito: { texto: 'Impresionada, te paga en oro y en secretos.', efectos: { oro: '1d6', bandera: 'nombre_croupier' } },
+              fallo: { texto: 'Pierdes. Y apuestas lo que no tenías.', efectos: { oro: -5, vida: -2 } } },
+          ] },
+        { id: 'jugador_arruinado', titulo: 'El jugador arruinado',
+          texto: ['Un fantasma llora sobre una mesa vacía. «Lo perdí todo. Mi vida, mi alma, mi sombrero favorito.»'],
+          opciones: [
+            { texto: 'Consolarle', prueba: { atributo: 'social', dificultad: 14 },
+              exito: { texto: 'Por fin descansa. Te deja su última apuesta: una máscara sonriente.', efectos: { ganar: ['Máscara sonriente'], vida: 2 } },
+              fallo: { texto: 'Le recuerdas lo que perdió. Su llanto te hiela.', efectos: { vida: '-1d6' } } },
+            { texto: 'Devolverle algo de oro (5)', requiere: { oro: 5 }, efectos: { oro: -5, vida: 6 } },
+            { texto: 'Ignorarle', efectos: {} },
+          ] },
       ],
     },
-    jefe: {
+    jefes: [{
       id: 'jefe_croupier', titulo: '👑 JEFE FINAL: El Croupier Eterno',
       texto: [
         'Tras una mesa de fieltro verde, una figura de traje impecable y sin rostro baraja dados de obsidiana.',
@@ -445,7 +671,33 @@ const PISOS = [
           exito: { texto: 'Se encoge, humillado. Su poder se tambalea.', golpe: 2 },
           fallo: { texto: 'Se ríe: «Ese nombre ya no significa nada».', efectos: { vida: '-1d6' } } },
       ],
-    },
+    }, {
+      id: 'jefe_casa', titulo: '👑 JEFE FINAL: La Casa',
+      texto: [
+        'La sala entera respira. La mesa de juego abre una boca de fichas y naipes: la Casa no es un lugar, es una criatura.',
+        '«La Casa siempre gana», dicen mil voces a la vez.',
+      ],
+      resistencia: 4,
+      opciones: [
+        { texto: 'Destrozar la mesa', prueba: { atributo: 'fisico', dificultad: 16 },
+          exito: { texto: 'Las astillas vuelan. La Casa ruge.' },
+          fallo: { texto: 'La mesa se cierra sobre ti como una trampa.', efectos: { vida: '-1d8' } } },
+        { texto: 'Contar las cartas de su baraja infinita', prueba: { atributo: 'mental', dificultad: 16 },
+          exito: { texto: 'Predices su próxima jugada y la anulas.' },
+          fallo: { texto: 'La baraja te corta como un enjambre.', efectos: { vida: '-1d8' } } },
+        { texto: 'Apostar contra ella y mantener el farol', prueba: { atributo: 'social', dificultad: 16 },
+          exito: { texto: 'La Casa duda. Por primera vez en siglos.' },
+          fallo: { texto: 'La Casa ve tu farol y lo sube.', efectos: { vida: '-1d8' } } },
+        { texto: 'Denunciar su trampa ante las almas', requiere: { bandera: 'trampa_croupier' }, una_vez: true,
+          prueba: { atributo: 'social', dificultad: 13 },
+          exito: { texto: 'Las almas atrapadas se rebelan contra la Casa.', golpe: 2 },
+          fallo: { texto: 'Las almas no te escuchan.', efectos: { vida: '-1d6' } } },
+        { texto: 'Cerrar los ojos y jugar a ciegas', requiere: { bandera: 'no_mirar' }, una_vez: true,
+          prueba: { atributo: 'mental', dificultad: 13 },
+          exito: { texto: 'Sus ilusiones no te afectan. Golpeas donde más le duele.', golpe: 2 },
+          fallo: { texto: 'Abres los ojos en el peor momento.', efectos: { vida: '-1d6' } } },
+      ],
+    }],
   },
 ];
 
